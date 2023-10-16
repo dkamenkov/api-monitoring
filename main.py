@@ -41,15 +41,18 @@ class ApiChecker:
             logging.error(f"Error getting external IP: {e}")
             return "Unknown IP"
 
-    def is_on_maintenance(self, endpoint: str) -> bool:
+    def is_on_maintenance(self, endpoint: str, timeout_seconds: int = 10) -> bool:
         """Determine if the API is on maintenance mode by checking for 'OnMaintenance' in the response."""
         logging.info("Checking if API is on maintenance...")
         try:
-            response = requests.get(endpoint)
+            response = requests.get(endpoint, timeout=timeout_seconds)
             if "OnMaintenance" in response.text:
                 logging.info("API is on maintenance.")
                 return True
             logging.info("API is not on maintenance.")
+            return False
+        except requests.exceptions.Timeout:
+            logging.error(f"Timeout after waiting for {timeout_seconds} seconds.")
             return False
         except Exception as e:
             logging.error(f"Error checking maintenance status: {e}")
