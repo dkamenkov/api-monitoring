@@ -94,6 +94,8 @@ class ApiChecker:
 """
 
         self.telegram_sender(alert_message)
+        self.alert_sent = True
+        logging.info("Alert sent and alert_sent set to True.")
 
     def check_api(self) -> (bool, str):
         """Attempt to access the API and return its status and any associated error message."""
@@ -169,23 +171,28 @@ class ApiChecker:
                             mtr_output = self.run_mtr(self.mtr_url)
                             if mtr_output:
                                 self.send_alert(self.mtr_url, mtr_output, error_message)
-                                self.alert_sent = True
                             else:
                                 logging.error("Failed to get MTR trace.")
+                        else:
+                            logging.info("API check failed, but alert was already sent.")
                     else:
                         if self.alert_sent:
-                            self.telegram_sender(
-                                f"🟢 Issue with API {self.mtr_url} resolved!"
-                            )
+                            self.telegram_sender(f"🟢 Issue with API {self.mtr_url} resolved!")
                             self.alert_sent = False
+                            logging.info("API issue resolved and alert_sent set to False.")
+                        else:
+                            logging.info("API check succeeded and no previous alert was sent.")
 
                 except concurrent.futures.TimeoutError:
                     logging.error("API check timed out")
-                    mtr_output = self.run_mtr(self.mtr_url)
-                    if mtr_output:
-                        self.send_alert(self.mtr_url, mtr_output, "API check timed out")
+                    if not self.alert_sent:
+                        mtr_output = self.run_mtr(self.mtr_url)
+                        if mtr_output:
+                            self.send_alert(self.mtr_url, mtr_output, "API check timed out")
+                        else:
+                            logging.error("Failed to get MTR trace.")
                     else:
-                        logging.error("Failed to get MTR trace.")
+                        logging.info("API check timed out, but alert was already sent.")
 
             time.sleep(60)
 
