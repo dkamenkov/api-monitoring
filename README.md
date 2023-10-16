@@ -15,7 +15,7 @@ API Monitoring provides a tool to monitor your API's availability and notify in 
 
 1. Install the required Python libraries from `requirements.txt`:
 ```
-pip install -r requirements.txt
+sudo pip3 install -r requirements.txt
 ```
 
 2. Install the `mtr` tracing tool:
