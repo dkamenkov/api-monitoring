@@ -12,17 +12,22 @@ import html
 import time
 
 # Initialize logging and load environment variables
-logging.basicConfig(filename='logs.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="logs.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 env_path = Path(__file__).parent / ".env"
 load_dotenv(env_path)
+
 
 class ApiChecker:
     def __init__(self) -> None:
         self.alert_sent: bool = False
-        self.mtr_url: str = os.getenv('ENDPOINT_URL')
+        self.mtr_url: str = os.getenv("ENDPOINT_URL")
         self.endpoint_url: str = f"https://{self.mtr_url}"
-        self.TELEGRAM_BOT_TOKEN: str = os.getenv('TELEGRAM_BOT_TOKEN')
-        self.TELEGRAM_CHAT_ID: str = os.getenv('TELEGRAM_CHAT_ID')
+        self.TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID")
 
     def get_external_ip(self) -> str:
         """Retrieve the external IP address of the current machine."""
@@ -35,7 +40,6 @@ class ApiChecker:
         except Exception as e:
             logging.error(f"Error getting external IP: {e}")
             return "Unknown IP"
-
 
     def is_on_maintenance(self, endpoint: str) -> bool:
         """Determine if the API is on maintenance mode by checking for 'OnMaintenance' in the response."""
@@ -50,16 +54,12 @@ class ApiChecker:
         except Exception as e:
             logging.error(f"Error checking maintenance status: {e}")
             return False
-        
+
     def telegram_sender(self, text: str) -> None:
         """Send a specified message to a Telegram chat."""
         logging.info("Sending message to Telegram...")
         url = f"https://api.telegram.org/bot{self.TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {
-            'chat_id': self.TELEGRAM_CHAT_ID,
-            'text': text,
-            'parse_mode': 'HTML'
-        }
+        payload = {"chat_id": self.TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
 
         try:
             response = requests.post(url, data=payload, timeout=5)
@@ -68,7 +68,9 @@ class ApiChecker:
         except Exception as e:
             logging.error(f"Error when trying to send message to Telegram: {e}")
 
-    def send_alert(self, mtr_url: str, mtr_output: str, error_message: str = None) -> None:
+    def send_alert(
+        self, mtr_url: str, mtr_output: str, error_message: str = None
+    ) -> None:
         """Send an alert to Telegram regarding an issue with the API."""
         logging.info("Compiling alert message...")
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -94,14 +96,14 @@ class ApiChecker:
         """Attempt to access the API and return its status and any associated error message."""
         logging.info("Checking API status...")
         session = boto3.Session(
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         )
 
         # Set timeouts for the session
         config = botocore.config.Config(connect_timeout=5, read_timeout=10)
 
-        client = session.client('ec2', endpoint_url=self.endpoint_url, config=config)
+        client = session.client("ec2", endpoint_url=self.endpoint_url, config=config)
 
         try:
             logging.info("Calling describe_availability_zones()...")
@@ -118,24 +120,25 @@ class ApiChecker:
             logging.error(f"SSL/TLS error occurred: {e}")
             return False, f"SSL/TLS error occurred: {e}"
         except botocore.exceptions.ClientError as e:
-            error_code = e.response['Error']['Code']
-            error_message = e.response['Error']['Message']
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"]["Message"]
             logging.error(f"ClientError occurred: {error_code} - {error_message}")
             return False, f"ClientError occurred: {error_code} - {error_message}"
         except Exception as e:
             logging.error(f"Unexpected error: {e}")
             return False, f"Unexpected error: {e}"
 
-
     def run_mtr(self, target: str) -> str:
         """Execute MTR to get a network trace to the specified target."""
         logging.info(f"Running MTR for target: {target}")
         try:
-            result = subprocess.run(["mtr", "--report", "--report-cycles", "1", "-4", "--no-dns", target],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    text=True,
-                                    check=True)
+            result = subprocess.run(
+                ["mtr", "--report", "--report-cycles", "1", "-4", "--no-dns", target],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
             return result.stdout
         except subprocess.CalledProcessError as e:
             logging.error(f"MTR error: {e}")
@@ -145,19 +148,19 @@ class ApiChecker:
     def run(self) -> None:
         """Main function to check the API and send alerts."""
         logging.info("Initializing main run sequence...")
-    
+
         while True:  # бесконечный цикл
             if self.is_on_maintenance(self.endpoint_url):
                 logging.info("The service is on maintenance. Skipping checks.")
-                time.sleep(60)  # пауза в 60 секунд
+                time.sleep(60)
                 continue
-            
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(self.check_api)
-    
+
                 try:
                     success, error_message = future.result(timeout=15)
-    
+
                     if not success:
                         if not self.alert_sent:
                             mtr_output = self.run_mtr(self.mtr_url)
@@ -168,9 +171,11 @@ class ApiChecker:
                                 logging.error("Failed to get MTR trace.")
                     else:
                         if self.alert_sent:
-                            self.telegram_sender(f"🟢 Issue with API {self.mtr_url} resolved!")
+                            self.telegram_sender(
+                                f"🟢 Issue with API {self.mtr_url} resolved!"
+                            )
                             self.alert_sent = False
-    
+
                 except concurrent.futures.TimeoutError:
                     logging.error("API check timed out")
                     mtr_output = self.run_mtr(self.mtr_url)
@@ -178,8 +183,8 @@ class ApiChecker:
                         self.send_alert(self.mtr_url, mtr_output, "API check timed out")
                     else:
                         logging.error("Failed to get MTR trace.")
-    
-            time.sleep(60)  # пауза в 60 секунд перед следующей итерацией цикла
+
+            time.sleep(60)
 
 
 if __name__ == "__main__":
