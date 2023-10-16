@@ -7,12 +7,11 @@ import logging
 import requests
 from datetime import datetime
 import concurrent.futures
+import html
+
 
 load_dotenv()
 logging.basicConfig(filename='logs.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def is_maintanace():
-    ''''''
 
 class ApiChecker:
     def __init__(self):
@@ -30,6 +29,16 @@ class ApiChecker:
         except Exception as e:
             logging.error(f"Error getting external IP: {str(e)}")
             return "Unknown IP"
+        
+    def is_on_maintenance(self, endpoint):
+        try:
+            response = requests.get(endpoint)
+            if "OnMaintenance" in response.text:
+                return True
+            return False
+        except Exception as e:
+            logging.error(f"Error checking maintenance status: {str(e)}")
+            return False
         
     def telegram_sender(self, text):
         url = f"https://api.telegram.org/bot{self.TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -55,6 +64,10 @@ class ApiChecker:
         # Получение IP-адреса текущего хоста
 
         source_ip = self.get_external_ip()  # убрано дублирование
+
+        # Экранируем полученные значения перед их использованием
+        mtr_output = "<pre>" + html.escape(mtr_output) + "</pre>"
+        error_message = "<code>" + html.escape(error_message) + "</code>"
 
         # Формирование сообщения
         alert_message = f"""
@@ -128,6 +141,10 @@ class ApiChecker:
 
     def run(self):
         logging.info("Starting main...")
+
+        if self.is_on_maintenance(self.endpoint_url):
+            logging.info("The service is on maintenance. Skipping checks.")
+            return
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(self.check_api)
             try:
