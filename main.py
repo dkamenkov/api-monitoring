@@ -149,6 +149,9 @@ class ApiChecker:
             logging.error(f"MTR error: {e}")
             logging.error(f"stderr: {e.stderr}")
             return ""
+        except Exception as e:
+            logging.error(f"General error running MTR: {e}")
+            return ""
 
     def run(self) -> None:
         """Main function to check the API and send alerts."""
@@ -173,6 +176,7 @@ class ApiChecker:
                                 self.send_alert(self.mtr_url, mtr_output, error_message)
                             else:
                                 logging.error("Failed to get MTR trace.")
+                                self.send_alert(self.mtr_url, "MTR failed to execute", "MTR error: Unable to resolve host")
                         else:
                             logging.info("API check failed, but alert was already sent.")
                     else:
