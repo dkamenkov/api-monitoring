@@ -141,7 +141,7 @@ class ApiChecker:
                 ["mtr", "--report", "--report-cycles", "1", "-4", "--no-dns", target],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
+                universal_newlines=True,
                 check=True,
             )
             return result.stdout
