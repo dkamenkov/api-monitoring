@@ -33,16 +33,14 @@ class ApiChecker:
         """Retrieve the external IP address of the current machine."""
         logging.info("Retrieving external IP...")
         try:
-            # Attempt to get the IP from an external service
             response = requests.get("https://httpbin.org/ip", timeout=5)
             ip = response.json()["origin"]
             logging.info(f"Successfully retrieved external IP: {ip}")
             return ip
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logging.warning(f"Failed to retrieve IP from external service: {e}")
             logging.info("Falling back to EC2 metadata...")
             try:
-                # Attempt to retrieve the IP from EC2 metadata
                 result = subprocess.run(
                     ["curl", "-s", "http://169.254.169.254/latest/meta-data/public-ipv4"],
                     stdout=subprocess.PIPE,
@@ -60,9 +58,6 @@ class ApiChecker:
             except subprocess.CalledProcessError as e:
                 logging.error(f"Error retrieving IP from EC2 metadata: {e}")
                 return "Unknown IP"
-            except Exception as e:
-                logging.error(f"Unexpected error retrieving IP: {e}")
-                return "Unknown IP"
 
     def is_on_maintenance(self, endpoint: str, timeout_seconds: int = 10) -> bool:
         """Determine if the API is on maintenance mode by checking for 'OnMaintenance' in the response."""
@@ -77,12 +72,7 @@ class ApiChecker:
         except requests.exceptions.Timeout:
             logging.error(f"Timeout after waiting for {timeout_seconds} seconds.")
             if not self.alert_sent:
-                mtr_output = self.run_mtr(self.mtr_url)
-                if mtr_output:
-                    self.send_alert(self.mtr_url, mtr_output, "Timeout checking maintenance status")
-                else:
-                    logging.error("Failed to get MTR trace.")
-                    self.send_alert(self.mtr_url, "MTR failed to execute", "Timeout and MTR error")
+                self.send_alert(self.mtr_url, "No MTR trace", "Timeout during maintenance check")
             return False
         except Exception as e:
             logging.error(f"Error checking maintenance status: {e}")
@@ -101,9 +91,7 @@ class ApiChecker:
         except Exception as e:
             logging.error(f"Error when trying to send message to Telegram: {e}")
 
-    def send_alert(
-        self, mtr_url: str, mtr_output: str, error_message: str = None
-    ) -> None:
+    def send_alert(self, mtr_url: str, mtr_output: str, error_message: str = None) -> None:
         """Send an alert to Telegram regarding an issue with the API."""
         logging.info("Compiling alert message...")
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -117,12 +105,10 @@ class ApiChecker:
 <b>🚨 Issue detected with API {mtr_url} 🚨</b>
 <b>Timestamp:</b> {now}
 <b>Source IP:</b> {source_ip}
-<b>Documentation:</b> <a href='[Your Link Here]'>Go to documentation</a>
 <b>Error:</b> {error_message}
 <b>Trace to {mtr_url}:</b>
 {mtr_output}
 """
-
         self.telegram_sender(alert_message)
         self.alert_sent = True
         logging.info("Alert sent and alert_sent set to True.")
