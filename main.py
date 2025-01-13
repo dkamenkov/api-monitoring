@@ -33,13 +33,36 @@ class ApiChecker:
         """Retrieve the external IP address of the current machine."""
         logging.info("Retrieving external IP...")
         try:
+            # Attempt to get the IP from an external service
             response = requests.get("https://httpbin.org/ip", timeout=5)
             ip = response.json()["origin"]
             logging.info(f"Successfully retrieved external IP: {ip}")
             return ip
-        except Exception as e:
-            logging.error(f"Error getting external IP: {e}")
-            return "Unknown IP"
+        except requests.exceptions.RequestException as e:
+            logging.warning(f"Failed to retrieve IP from external service: {e}")
+            logging.info("Falling back to EC2 metadata...")
+            try:
+                # Attempt to retrieve the IP from EC2 metadata
+                result = subprocess.run(
+                    ["curl", "-s", "http://169.254.169.254/latest/meta-data/public-ipv4"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                )
+                ip = result.stdout.strip()
+                if ip:
+                    logging.info(f"Successfully retrieved IP from EC2 metadata: {ip}")
+                    return ip
+                else:
+                    logging.error("No IP returned from EC2 metadata.")
+                    return "Unknown IP"
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Error retrieving IP from EC2 metadata: {e}")
+                return "Unknown IP"
+            except Exception as e:
+                logging.error(f"Unexpected error retrieving IP: {e}")
+                return "Unknown IP"
 
     def is_on_maintenance(self, endpoint: str, timeout_seconds: int = 10) -> bool:
         """Determine if the API is on maintenance mode by checking for 'OnMaintenance' in the response."""
@@ -53,6 +76,13 @@ class ApiChecker:
             return False
         except requests.exceptions.Timeout:
             logging.error(f"Timeout after waiting for {timeout_seconds} seconds.")
+            if not self.alert_sent:
+                mtr_output = self.run_mtr(self.mtr_url)
+                if mtr_output:
+                    self.send_alert(self.mtr_url, mtr_output, "Timeout checking maintenance status")
+                else:
+                    logging.error("Failed to get MTR trace.")
+                    self.send_alert(self.mtr_url, "MTR failed to execute", "Timeout and MTR error")
             return False
         except Exception as e:
             logging.error(f"Error checking maintenance status: {e}")
@@ -195,6 +225,7 @@ class ApiChecker:
                             self.send_alert(self.mtr_url, mtr_output, "API check timed out")
                         else:
                             logging.error("Failed to get MTR trace.")
+                            self.send_alert(self.mtr_url, "MTR failed to execute", "Timeout and MTR error")
                     else:
                         logging.info("API check timed out, but alert was already sent.")
 
