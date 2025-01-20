@@ -72,12 +72,22 @@ class ApiChecker:
         except requests.exceptions.Timeout:
             logging.error(f"Timeout after waiting for {timeout_seconds} seconds.")
             if not self.alert_sent:
+                logging.info("Running MTR for timeout analysis...")
                 mtr_output = self.run_mtr(self.mtr_url)
-                self.send_alert(
-                    self.mtr_url,
-                    mtr_output if mtr_output else "MTR failed to execute",
-                    "Timeout during maintenance check",
-                )
+                if mtr_output:
+                    logging.info("MTR trace successfully retrieved.")
+                    self.send_alert(
+                        self.mtr_url,
+                        mtr_output,
+                        "Timeout during maintenance check",
+                    )
+                else:
+                    logging.error("Failed to get MTR trace.")
+                    self.send_alert(
+                        self.mtr_url,
+                        "MTR failed to execute",
+                        "Timeout during maintenance check",
+                    )
             return False
         except Exception as e:
             logging.error(f"Error checking maintenance status: {e}")
