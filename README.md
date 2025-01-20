@@ -80,7 +80,3 @@ sudo systemctl start api-monitoring
 ```
 sudo systemctl enable api-monitoring
 ```
-
----
-
-You now have an updated and detailed README for your project.
