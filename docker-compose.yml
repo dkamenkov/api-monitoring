@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  api-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-monitoring
+    restart: unless-stopped
+    volumes:
+      - ./.env:/app/.env:ro
+    environment:
+      - TZ=UTC
+    networks:
+      - monitoring-network
+
+networks:
+  monitoring-network:
+    driver: bridge
