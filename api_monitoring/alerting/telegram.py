@@ -42,43 +42,53 @@ class TelegramAlerter:
         """
         logger.info("Sending message to Telegram...")
 
-        payload = {
-            "chat_id": self.chat_id,
-            "text": text,
-            "parse_mode": "HTML"
-        }
+        payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    self.api_url, 
-                    data=payload, 
-                    timeout=self.timeout
+                    self.api_url,
+                    data=payload,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
                 ) as response:
                     if response.status == 200:
                         logger.info("Message sent to Telegram successfully")
                         return True
                     else:
                         response_text = await response.text()
-                        logger.error(f"Failed to send message to Telegram: {response.status} - {response_text}")
+                        logger.error(
+                            f"Failed to send message to Telegram: {response.status} - {response_text}"
+                        )
                         return False
         except asyncio.TimeoutError:
-            logger.error(f"Timeout sending message to Telegram after {self.timeout} seconds")
+            logger.error(
+                f"Timeout sending message to Telegram after {self.timeout} seconds"
+            )
             return False
         except aiohttp.ClientConnectorError as e:
             logger.error(f"Connection error sending message to Telegram: {e}")
             return False
         except aiohttp.ClientResponseError as e:
-            logger.error(f"Response error sending message to Telegram: {e.status} - {e.message}")
+            logger.error(
+                f"Response error sending message to Telegram: {e.status} - {e.message}"
+            )
             return False
         except aiohttp.ClientError as e:
             logger.error(f"HTTP client error sending message to Telegram: {e}")
             return False
         except Exception as e:
-            logger.error(f"Unexpected error sending message to Telegram: {e}", exc_info=True)
+            logger.error(
+                f"Unexpected error sending message to Telegram: {e}", exc_info=True
+            )
             return False
 
-    async def send_alert(self, target: str, mtr_output: str, error_message: Optional[str] = None, comment: Optional[str] = None) -> bool:
+    async def send_alert(
+        self,
+        target: str,
+        mtr_output: str,
+        error_message: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> bool:
         """
         Send an alert about an API issue to Telegram.
 
@@ -100,8 +110,16 @@ class TelegramAlerter:
         source_ip = await get_external_ip()
 
         # Escape received values for safety
-        safe_mtr_output = f"<pre>{html.escape(mtr_output)}</pre>" if mtr_output else "<pre>No MTR output available</pre>"
-        safe_error_message = f"<code>{html.escape(error_message)}</code>" if error_message else "<code>Unknown error</code>"
+        safe_mtr_output = (
+            f"<pre>{html.escape(mtr_output)}</pre>"
+            if mtr_output
+            else "<pre>No MTR output available</pre>"
+        )
+        safe_error_message = (
+            f"<code>{html.escape(error_message)}</code>"
+            if error_message
+            else "<code>Unknown error</code>"
+        )
         safe_comment = f"<i>{html.escape(comment)}</i>" if comment else ""
 
         # Prepare comment section if provided

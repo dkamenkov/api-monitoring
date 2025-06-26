@@ -26,19 +26,34 @@ class TestSettings(unittest.TestCase):
     @patch.dict(os.environ, {}, clear=True)
     def test_required_settings(self):
         """Test that required settings raise an error when missing."""
-        with self.assertRaises(Exception):
-            Settings()
 
-    @patch.dict(os.environ, {
-        "ENDPOINT_URL": "test-api.example.com",
-        "AWS_ACCESS_KEY_ID": "test-access-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret-key",
-        "TELEGRAM_BOT_TOKEN": "test-bot-token",
-        "TELEGRAM_CHAT_ID": "test-chat-id",
-    })
+        # Create a Settings class that doesn't load from .env file
+        class TestSettings(Settings):
+            model_config = Settings.model_config.copy()
+            model_config.update({"env_file": None})
+
+        with self.assertRaises(Exception):
+            TestSettings()
+
+    @patch.dict(
+        os.environ,
+        {
+            "ENDPOINT_URL": "test-api.example.com",
+            "AWS_ACCESS_KEY_ID": "test-access-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret-key",
+            "TELEGRAM_BOT_TOKEN": "test-bot-token",
+            "TELEGRAM_CHAT_ID": "test-chat-id",
+        },
+    )
     def test_minimal_settings(self):
         """Test that minimal required settings work."""
-        settings = Settings()
+
+        # Create a Settings class that doesn't load from .env file
+        class TestSettings(Settings):
+            model_config = Settings.model_config.copy()
+            model_config.update({"env_file": None})
+
+        settings = TestSettings()
         self.assertEqual(settings.endpoint_url, "https://test-api.example.com")
         self.assertEqual(settings.aws_access_key_id, "test-access-key")
         self.assertEqual(settings.aws_secret_access_key, "test-secret-key")
@@ -52,19 +67,22 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(settings.log_level, "INFO")
         self.assertEqual(settings.log_file, "logs.log")
 
-    @patch.dict(os.environ, {
-        "ENDPOINT_URL": "http://test-api.example.com",
-        "AWS_ACCESS_KEY_ID": "test-access-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret-key",
-        "AWS_DEFAULT_REGION": "us-west-2",
-        "TELEGRAM_BOT_TOKEN": "test-bot-token",
-        "TELEGRAM_CHAT_ID": "test-chat-id",
-        "CHECK_INTERVAL": "30",
-        "API_TIMEOUT": "10",
-        "MAINTENANCE_CHECK_TIMEOUT": "5",
-        "LOG_LEVEL": "DEBUG",
-        "LOG_FILE": "custom.log",
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "ENDPOINT_URL": "http://test-api.example.com",
+            "AWS_ACCESS_KEY_ID": "test-access-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret-key",
+            "AWS_DEFAULT_REGION": "us-west-2",
+            "TELEGRAM_BOT_TOKEN": "test-bot-token",
+            "TELEGRAM_CHAT_ID": "test-chat-id",
+            "CHECK_INTERVAL": "30",
+            "API_TIMEOUT": "10",
+            "MAINTENANCE_CHECK_TIMEOUT": "5",
+            "LOG_LEVEL": "DEBUG",
+            "LOG_FILE": "custom.log",
+        },
+    )
     def test_full_settings(self):
         """Test that all settings are loaded correctly."""
         settings = Settings()
@@ -80,13 +98,16 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(settings.log_level, "DEBUG")
         self.assertEqual(settings.log_file, "custom.log")
 
-    @patch.dict(os.environ, {
-        "ENDPOINT_URL": "test-api.example.com",  # No protocol
-        "AWS_ACCESS_KEY_ID": "test-access-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret-key",
-        "TELEGRAM_BOT_TOKEN": "test-bot-token",
-        "TELEGRAM_CHAT_ID": "test-chat-id",
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "ENDPOINT_URL": "test-api.example.com",  # No protocol
+            "AWS_ACCESS_KEY_ID": "test-access-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret-key",
+            "TELEGRAM_BOT_TOKEN": "test-bot-token",
+            "TELEGRAM_CHAT_ID": "test-chat-id",
+        },
+    )
     def test_endpoint_url_validator(self):
         """Test that the endpoint_url validator adds https:// if missing."""
         settings = Settings()

@@ -21,33 +21,43 @@ async def get_external_ip() -> str:
     # Try using httpbin.org first
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get("https://httpbin.org/ip", timeout=5) as response:
+            async with session.get(
+                "https://httpbin.org/ip", timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    ip = data.get("origin", "")
+                    ip: str = data.get("origin", "")
                     if ip:
                         logger.info(f"Successfully retrieved external IP: {ip}")
                         return ip
-                logger.warning(f"Failed to retrieve IP from httpbin.org: HTTP {response.status}")
+                logger.warning(
+                    f"Failed to retrieve IP from httpbin.org: HTTP {response.status}"
+                )
     except asyncio.TimeoutError:
         logger.warning("Timeout retrieving IP from httpbin.org")
     except aiohttp.ClientConnectorError as e:
         logger.warning(f"Connection error retrieving IP from httpbin.org: {e}")
     except aiohttp.ClientResponseError as e:
-        logger.warning(f"Response error retrieving IP from httpbin.org: {e.status} - {e.message}")
+        logger.warning(
+            f"Response error retrieving IP from httpbin.org: {e.status} - {e.message}"
+        )
     except aiohttp.ClientError as e:
         logger.warning(f"HTTP client error retrieving IP from httpbin.org: {e}")
     except Exception as e:
-        logger.warning(f"Unexpected error retrieving IP from external service: {e}", exc_info=True)
+        logger.warning(
+            f"Unexpected error retrieving IP from external service: {e}", exc_info=True
+        )
 
     # Fall back to EC2 metadata
     logger.info("Falling back to EC2 metadata...")
     try:
         # Use asyncio to run the subprocess command
         proc = await asyncio.create_subprocess_exec(
-            "curl", "-s", "http://169.254.169.254/latest/meta-data/public-ipv4",
+            "curl",
+            "-s",
+            "http://169.254.169.254/latest/meta-data/public-ipv4",
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await proc.communicate()
 
@@ -82,9 +92,15 @@ async def run_mtr(target: str) -> Tuple[bool, str]:
     try:
         # Use asyncio to run the subprocess command
         proc = await asyncio.create_subprocess_exec(
-            "mtr", "--report", "--report-cycles", "1", "-4", "--no-dns", target,
+            "mtr",
+            "--report",
+            "--report-cycles",
+            "1",
+            "-4",
+            "--no-dns",
+            target,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await proc.communicate()
 
@@ -113,9 +129,10 @@ async def is_command_available(command: str) -> bool:
     """
     try:
         proc = await asyncio.create_subprocess_exec(
-            "which", command,
+            "which",
+            command,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         _, _ = await proc.communicate()
         return proc.returncode == 0
@@ -138,7 +155,7 @@ def is_command_available_sync(command: str) -> bool:
             ["which", command],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            check=True
+            check=True,
         )
         return True
     except subprocess.CalledProcessError:

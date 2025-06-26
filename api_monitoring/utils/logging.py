@@ -27,7 +27,7 @@ class StructuredLogFormatter(logging.Formatter):
 
         # Add extra fields if available
         for key, value in record.__dict__.items():
-            if key not in log_data and not key.startswith('_') and key != 'exc_info':
+            if key not in log_data and not key.startswith("_") and key != "exc_info":
                 log_data[key] = value
 
         return json.dumps(log_data)
@@ -65,10 +65,12 @@ def get_logger(name: str, extra: Optional[Dict[str, Any]] = None) -> logging.Log
 
     # Create a filter to add extra fields
     if extra:
+
         class ExtraFilter(logging.Filter):
-            def filter(self, record):
-                for key, value in extra.items():
-                    setattr(record, key, value)
+            def filter(self, record: logging.LogRecord) -> bool:
+                if extra is not None:
+                    for key, value in extra.items():
+                        setattr(record, key, value)
                 return True
 
         extra_filter = ExtraFilter()
