@@ -1,8 +1,18 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+else:
+    try:
+        from typing_extensions import Self
+    except ImportError:
+        from typing import Self
 
 
 class Settings(BaseSettings):
@@ -34,6 +44,9 @@ class Settings(BaseSettings):
     )
     log_level: str = Field(default="INFO", description="Logging level")
     log_file: Optional[str] = Field(default="logs.log", description="Log file path")
+    alert_comment: Optional[str] = Field(
+        default=None, description="Optional comment to include in alerts"
+    )
 
     @field_validator("endpoint_url")
     @classmethod
@@ -44,7 +57,7 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def validate_required_fields(self) -> "Settings":
+    def validate_required_fields(self) -> Self:
         """Validate that required fields are not empty."""
         required_fields = [
             "endpoint_url",
@@ -83,7 +96,7 @@ def _create_settings() -> Settings:
         # We'll create a Settings instance with model validation disabled
         class TestSettings(Settings):
             @model_validator(mode="after")
-            def validate_required_fields(self) -> "TestSettings":
+            def validate_required_fields(self) -> Self:
                 # Skip validation for test/fallback instances
                 return self
 
@@ -99,6 +112,7 @@ def _create_settings() -> Settings:
             maintenance_check_timeout=10,
             log_level="INFO",
             log_file="logs.log",
+            alert_comment=None,
         )
 
 
