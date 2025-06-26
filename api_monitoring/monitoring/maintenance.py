@@ -1,5 +1,5 @@
 import asyncio
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import aiohttp
 
@@ -37,9 +37,9 @@ class MaintenanceChecker:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    self.endpoint_url, 
-                    timeout=self.timeout,
-                    allow_redirects=True
+                    self.endpoint_url,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout),
+                    allow_redirects=True,
                 ) as response:
                     # Check if the response contains the maintenance indicator
                     text = await response.text()
@@ -62,7 +62,9 @@ class MaintenanceChecker:
             return False, error_msg
 
         except aiohttp.ClientResponseError as e:
-            error_msg = f"Response error checking maintenance status: {e.status} - {e.message}"
+            error_msg = (
+                f"Response error checking maintenance status: {e.status} - {e.message}"
+            )
             logger.error(error_msg)
             return False, error_msg
 

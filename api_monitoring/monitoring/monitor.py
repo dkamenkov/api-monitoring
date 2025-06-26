@@ -47,7 +47,9 @@ class ApiMonitor:
         else:
             self.target_hostname = target_hostname
 
-        logger.info(f"Initialized API monitor for {self.target_hostname} with check interval {check_interval}s")
+        logger.info(
+            f"Initialized API monitor for {self.target_hostname} with check interval {check_interval}s"
+        )
 
     async def check_api_with_timeout(self) -> Tuple[bool, Optional[str]]:
         """
@@ -60,15 +62,16 @@ class ApiMonitor:
         try:
             # Use asyncio.wait_for to implement timeout
             return await asyncio.wait_for(
-                aws_client.check_api_availability(),
-                timeout=self.api_timeout
+                aws_client.check_api_availability(), timeout=self.api_timeout
             )
         except asyncio.TimeoutError:
             error_msg = f"API check timed out after {self.api_timeout} seconds"
             logger.error(error_msg)
             return False, error_msg
 
-    async def handle_api_failure(self, error_message: str, comment: Optional[str] = None) -> None:
+    async def handle_api_failure(
+        self, error_message: str, comment: Optional[str] = None
+    ) -> None:
         """
         Handle API failure by running MTR and sending an alert.
 
@@ -86,10 +89,7 @@ class ApiMonitor:
             if success:
                 # Send alert with MTR output
                 await telegram_alerter.send_alert(
-                    self.target_hostname,
-                    mtr_output,
-                    error_message,
-                    comment
+                    self.target_hostname, mtr_output, error_message, comment
                 )
             else:
                 # Send alert without MTR output
@@ -97,7 +97,7 @@ class ApiMonitor:
                     self.target_hostname,
                     "MTR failed to execute",
                     f"{error_message} (MTR error: {mtr_output})",
-                    comment
+                    comment,
                 )
         else:
             logger.info("API check failed, but alert was already sent.")
@@ -107,7 +107,9 @@ class ApiMonitor:
         logger.info("Starting monitoring cycle...")
 
         # Check if the API is in maintenance mode
-        is_maintenance, maintenance_error = await maintenance_checker.is_on_maintenance()
+        is_maintenance, maintenance_error = (
+            await maintenance_checker.is_on_maintenance()
+        )
 
         if is_maintenance:
             logger.info("The service is on maintenance. Skipping further checks.")
@@ -125,9 +127,7 @@ class ApiMonitor:
 
         if not success:
             # API is not available
-            await self.handle_api_failure(
-                error_message or "Unknown error"
-            )
+            await self.handle_api_failure(error_message or "Unknown error")
         else:
             # API is available
             logger.info("API check succeeded.")
@@ -151,7 +151,9 @@ class ApiMonitor:
                 logger.info("Monitoring task was cancelled")
                 break
             except Exception as e:
-                logger.error(f"Unexpected error in monitoring cycle: {e}", exc_info=True)
+                logger.error(
+                    f"Unexpected error in monitoring cycle: {e}", exc_info=True
+                )
                 # Consider sending an alert about the monitoring system itself
                 await self.handle_api_failure(f"Monitoring system error: {str(e)}")
 

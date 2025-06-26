@@ -8,6 +8,7 @@ when issues are detected.
 import asyncio
 import signal
 import sys
+from types import FrameType
 from typing import Optional
 
 from api_monitoring.config import settings
@@ -19,7 +20,7 @@ from api_monitoring.utils.network import is_command_available, is_command_availa
 def setup_signal_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
 
-    def handle_exit(sig: int, frame) -> None:
+    def handle_exit(sig: int, frame: Optional[FrameType]) -> None:
         """Handle exit signals."""
         logger.info(f"Received signal {sig}, shutting down...")
         sys.exit(0)
