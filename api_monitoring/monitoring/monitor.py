@@ -118,7 +118,7 @@ class ApiMonitor:
         if maintenance_error:
             # Handle maintenance check failure
             await self.handle_api_failure(
-                f"Maintenance check failed: {maintenance_error}"
+                f"Maintenance check failed: {maintenance_error}", settings.alert_comment
             )
             return
 
@@ -127,7 +127,9 @@ class ApiMonitor:
 
         if not success:
             # API is not available
-            await self.handle_api_failure(error_message or "Unknown error")
+            await self.handle_api_failure(
+                error_message or "Unknown error", settings.alert_comment
+            )
         else:
             # API is available
             logger.info("API check succeeded.")
@@ -155,7 +157,9 @@ class ApiMonitor:
                     f"Unexpected error in monitoring cycle: {e}", exc_info=True
                 )
                 # Consider sending an alert about the monitoring system itself
-                await self.handle_api_failure(f"Monitoring system error: {str(e)}")
+                await self.handle_api_failure(
+                    f"Monitoring system error: {str(e)}", settings.alert_comment
+                )
 
             # Wait for the next check interval
             logger.info(f"Waiting {self.check_interval} seconds until next check...")

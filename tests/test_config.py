@@ -66,6 +66,7 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(settings.maintenance_check_timeout, 10)
         self.assertEqual(settings.log_level, "INFO")
         self.assertEqual(settings.log_file, "logs.log")
+        self.assertIsNone(settings.alert_comment)
 
     @patch.dict(
         os.environ,
@@ -81,6 +82,7 @@ class TestSettings(unittest.TestCase):
             "MAINTENANCE_CHECK_TIMEOUT": "5",
             "LOG_LEVEL": "DEBUG",
             "LOG_FILE": "custom.log",
+            "ALERT_COMMENT": "Test alert comment",
         },
     )
     def test_full_settings(self):
@@ -97,6 +99,7 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(settings.maintenance_check_timeout, 5)
         self.assertEqual(settings.log_level, "DEBUG")
         self.assertEqual(settings.log_file, "custom.log")
+        self.assertEqual(settings.alert_comment, "Test alert comment")
 
     @patch.dict(
         os.environ,
