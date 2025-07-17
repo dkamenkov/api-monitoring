@@ -11,9 +11,4 @@ services:
       - ./.env:/app/.env:ro
     environment:
       - TZ=UTC
-    networks:
-      - monitoring-network
-
-networks:
-  monitoring-network:
-    driver: bridge
+    network_mode: host
