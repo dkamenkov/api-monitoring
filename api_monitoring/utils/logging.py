@@ -52,6 +52,9 @@ def get_logger(name: str, extra: Optional[Dict[str, Any]] = None) -> logging.Log
         log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
         logger.setLevel(log_level)
 
+        # Prevent propagation to parent loggers to avoid duplicate messages
+        logger.propagate = False
+
         # Create console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(StructuredLogFormatter())
