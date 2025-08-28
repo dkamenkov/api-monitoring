@@ -48,6 +48,16 @@ class Settings(BaseSettings):
         default=None, description="Optional comment to include in alerts"
     )
 
+    # Failure Threshold Configuration
+    maintenance_failure_threshold: int = Field(
+        default=1,
+        description="Number of consecutive maintenance check failures before alerting",
+    )
+    api_failure_threshold: int = Field(
+        default=1,
+        description="Number of consecutive API check failures before alerting",
+    )
+
     @field_validator("endpoint_url")
     @classmethod
     def validate_endpoint_url(cls, v: str) -> str:
@@ -113,6 +123,8 @@ def _create_settings() -> Settings:
             log_level="INFO",
             log_file="logs.log",
             alert_comment=None,
+            maintenance_failure_threshold=1,
+            api_failure_threshold=1,
         )
 
 

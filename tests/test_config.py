@@ -67,6 +67,9 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(settings.log_level, "INFO")
         self.assertEqual(settings.log_file, "logs.log")
         self.assertIsNone(settings.alert_comment)
+        # Check new failure threshold defaults
+        self.assertEqual(settings.maintenance_failure_threshold, 1)
+        self.assertEqual(settings.api_failure_threshold, 1)
 
     @patch.dict(
         os.environ,
@@ -83,6 +86,8 @@ class TestSettings(unittest.TestCase):
             "LOG_LEVEL": "DEBUG",
             "LOG_FILE": "custom.log",
             "ALERT_COMMENT": "Test alert comment",
+            "MAINTENANCE_FAILURE_THRESHOLD": "3",
+            "API_FAILURE_THRESHOLD": "2",
         },
     )
     def test_full_settings(self):
@@ -100,6 +105,9 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(settings.log_level, "DEBUG")
         self.assertEqual(settings.log_file, "custom.log")
         self.assertEqual(settings.alert_comment, "Test alert comment")
+        # Check new failure threshold settings
+        self.assertEqual(settings.maintenance_failure_threshold, 3)
+        self.assertEqual(settings.api_failure_threshold, 2)
 
     @patch.dict(
         os.environ,

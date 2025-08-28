@@ -47,8 +47,16 @@ class ApiMonitor:
         else:
             self.target_hostname = target_hostname
 
+        # Failure counters for threshold-based alerting
+        self.maintenance_failure_count = 0
+        self.api_failure_count = 0
+
         logger.info(
             f"Initialized API monitor for {self.target_hostname} with check interval {check_interval}s"
+        )
+        logger.info(
+            f"Failure thresholds: maintenance={settings.maintenance_failure_threshold}, "
+            f"api={settings.api_failure_threshold}"
         )
 
     async def check_api_with_timeout(self) -> Tuple[bool, Optional[str]]:
@@ -68,6 +76,45 @@ class ApiMonitor:
             error_msg = f"API check timed out after {self.api_timeout} seconds"
             logger.error(error_msg)
             return False, error_msg
+
+    def should_send_maintenance_alert(self) -> bool:
+        """
+        Check if a maintenance failure alert should be sent based on the failure threshold.
+
+        Returns:
+            True if an alert should be sent, False otherwise.
+        """
+        self.maintenance_failure_count += 1
+        logger.info(
+            f"Maintenance failure count: {self.maintenance_failure_count}/{settings.maintenance_failure_threshold}"
+        )
+
+        if self.maintenance_failure_count >= settings.maintenance_failure_threshold:
+            return True
+        return False
+
+    def should_send_api_alert(self) -> bool:
+        """
+        Check if an API failure alert should be sent based on the failure threshold.
+
+        Returns:
+            True if an alert should be sent, False otherwise.
+        """
+        self.api_failure_count += 1
+        logger.info(
+            f"API failure count: {self.api_failure_count}/{settings.api_failure_threshold}"
+        )
+
+        if self.api_failure_count >= settings.api_failure_threshold:
+            return True
+        return False
+
+    def reset_failure_counters(self) -> None:
+        """Reset all failure counters when checks succeed."""
+        if self.maintenance_failure_count > 0 or self.api_failure_count > 0:
+            logger.info("Resetting failure counters after successful checks")
+            self.maintenance_failure_count = 0
+            self.api_failure_count = 0
 
     async def handle_api_failure(
         self, error_message: str, comment: Optional[str] = None
@@ -102,8 +149,14 @@ class ApiMonitor:
         else:
             logger.info("API check failed, but alert was already sent.")
 
-    async def run_once(self) -> None:
-        """Run a single monitoring cycle."""
+    async def run_once(self) -> bool:
+        """
+        Run a single monitoring cycle.
+
+        Returns:
+            True if check was successful or maintenance mode, False if there was a failure
+            that hasn't reached the threshold (indicating immediate retry should happen).
+        """
         logger.info("Starting monitoring cycle...")
 
         # Check if the API is in maintenance mode
@@ -113,30 +166,51 @@ class ApiMonitor:
 
         if is_maintenance:
             logger.info("The service is on maintenance. Skipping further checks.")
-            return
+            # Reset failure counters since maintenance is expected
+            self.reset_failure_counters()
+            return True
 
         if maintenance_error:
-            # Handle maintenance check failure
-            await self.handle_api_failure(
-                f"Maintenance check failed: {maintenance_error}", settings.alert_comment
-            )
-            return
+            # Handle maintenance check failure with threshold
+            if self.should_send_maintenance_alert():
+                await self.handle_api_failure(
+                    f"Maintenance check failed: {maintenance_error}",
+                    settings.alert_comment,
+                )
+                return True  # Alert sent, use normal interval
+            else:
+                logger.warning(
+                    f"Maintenance check failed ({self.maintenance_failure_count}/{settings.maintenance_failure_threshold}): {maintenance_error}"
+                )
+                return False  # Failure without alert, retry immediately
 
         # Check API availability
         success, error_message = await self.check_api_with_timeout()
 
         if not success:
-            # API is not available
-            await self.handle_api_failure(
-                error_message or "Unknown error", settings.alert_comment
-            )
+            # API is not available - check threshold before alerting
+            if self.should_send_api_alert():
+                await self.handle_api_failure(
+                    error_message or "Unknown error", settings.alert_comment
+                )
+                return True  # Alert sent, use normal interval
+            else:
+                logger.warning(
+                    f"API check failed ({self.api_failure_count}/{settings.api_failure_threshold}): {error_message}"
+                )
+                return False  # Failure without alert, retry immediately
         else:
             # API is available
             logger.info("API check succeeded.")
 
+            # Reset failure counters on successful check
+            self.reset_failure_counters()
+
             # If an alert was previously sent, send a resolution message
             if telegram_alerter.alert_sent:
                 await telegram_alerter.send_resolution(self.target_hostname)
+
+            return True  # Success, use normal interval
 
     async def run(self) -> None:
         """
@@ -148,7 +222,7 @@ class ApiMonitor:
 
         while True:
             try:
-                await self.run_once()
+                should_wait = await self.run_once()
             except asyncio.CancelledError:
                 logger.info("Monitoring task was cancelled")
                 break
@@ -160,10 +234,18 @@ class ApiMonitor:
                 await self.handle_api_failure(
                     f"Monitoring system error: {str(e)}", settings.alert_comment
                 )
+                should_wait = True  # Wait normal interval after system errors
 
-            # Wait for the next check interval
-            logger.info(f"Waiting {self.check_interval} seconds until next check...")
-            await asyncio.sleep(self.check_interval)
+            # Wait for the next check interval only if check was successful or alert was sent
+            if should_wait:
+                logger.info(
+                    f"Waiting {self.check_interval} seconds until next check..."
+                )
+                await asyncio.sleep(self.check_interval)
+            else:
+                logger.info("Retrying immediately due to failure below threshold...")
+                # Small delay to prevent tight loop in case of persistent issues
+                await asyncio.sleep(1)
 
 
 # Create a default API monitor instance
